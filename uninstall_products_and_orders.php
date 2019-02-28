@@ -12,34 +12,14 @@ defined( 'WP_UNINSTALL_PLUGIN' ) || exit;
 
 global $wpdb, $wp_version;
 
-wp_clear_scheduled_hook( 'woocommerce_scheduled_sales' );
-wp_clear_scheduled_hook( 'woocommerce_cancel_unpaid_orders' );
-wp_clear_scheduled_hook( 'woocommerce_cleanup_sessions' );
-wp_clear_scheduled_hook( 'woocommerce_cleanup_personal_data' );
-wp_clear_scheduled_hook( 'woocommerce_cleanup_logs' );
-wp_clear_scheduled_hook( 'woocommerce_geoip_updater' );
-wp_clear_scheduled_hook( 'woocommerce_tracker_send_event' );
-
 /*
  * Only remove ALL product and page data if WC_REMOVE_ALL_DATA constant is set to true in user's
  * wp-config.php. This is to prevent data loss when deleting the plugin from the backend
  * and to ensure only the site owner can perform this action.
  */
 if ( defined( 'WC_REMOVE_ALL_DATA' ) && true === WC_REMOVE_ALL_DATA ) {
-	include_once dirname( __FILE__ ) . '/includes/class-wc-install.php';
+	//include_once dirname( __FILE__ ) . '/includes/class-wc-install.php';
 
-	// Roles + caps.
-	WC_Install::remove_roles();
-
-	// Pages.
-	wp_trash_post( get_option( 'woocommerce_shop_page_id' ) );
-	wp_trash_post( get_option( 'woocommerce_cart_page_id' ) );
-	wp_trash_post( get_option( 'woocommerce_checkout_page_id' ) );
-	wp_trash_post( get_option( 'woocommerce_myaccount_page_id' ) );
-	wp_trash_post( get_option( 'woocommerce_edit_address_page_id' ) );
-	wp_trash_post( get_option( 'woocommerce_view_order_page_id' ) );
-	wp_trash_post( get_option( 'woocommerce_change_password_page_id' ) );
-	wp_trash_post( get_option( 'woocommerce_logout_page_id' ) );
 
 	if ( $wpdb->get_var( "SHOW TABLES LIKE '{$wpdb->prefix}woocommerce_attribute_taxonomies';" ) ) {
 		$wc_attributes = array_filter( (array) $wpdb->get_col( "SELECT attribute_name FROM {$wpdb->prefix}woocommerce_attribute_taxonomies;" ) );
@@ -47,17 +27,8 @@ if ( defined( 'WC_REMOVE_ALL_DATA' ) && true === WC_REMOVE_ALL_DATA ) {
 		$wc_attributes = array();
 	}
 
-	// Tables.
-	WC_Install::drop_tables();
 
-	// Delete options.
-	$wpdb->query( "DELETE FROM $wpdb->options WHERE option_name LIKE 'woocommerce\_%';" );
-	$wpdb->query( "DELETE FROM $wpdb->options WHERE option_name LIKE 'widget\_woocommerce\_%';" );
-
-	// Delete usermeta.
-	$wpdb->query( "DELETE FROM $wpdb->usermeta WHERE meta_key LIKE 'woocommerce\_%';" );
-
-	// Delete posts + data.
+		// Delete posts + data.
 	$wpdb->query( "DELETE FROM {$wpdb->posts} WHERE post_type IN ( 'product', 'product_variation', 'shop_coupon', 'shop_order', 'shop_order_refund' );" );
 	$wpdb->query( "DELETE meta FROM {$wpdb->postmeta} meta LEFT JOIN {$wpdb->posts} posts ON posts.ID = meta.post_id WHERE posts.ID IS NULL;" );
 
@@ -100,6 +71,38 @@ if ( defined( 'WC_REMOVE_ALL_DATA' ) && true === WC_REMOVE_ALL_DATA ) {
 			$wpdb->query( "DELETE tm FROM {$wpdb->termmeta} tm LEFT JOIN {$wpdb->term_taxonomy} tt ON tm.term_id = tt.term_id WHERE tt.term_id IS NULL;" );
 		}
 	}
+
+	//re-create tables
+
+	require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+
+	$collate = '';
+
+	if ( $wpdb->has_cap( 'collation' ) ) {
+		$collate = $wpdb->get_charset_collate();
+	}
+
+	$tables = "
+	CREATE TABLE {$wpdb->prefix}woocommerce_order_items (
+	  order_item_id BIGINT UNSIGNED NOT NULL auto_increment,
+	  order_item_name TEXT NOT NULL,
+	  order_item_type varchar(200) NOT NULL DEFAULT '',
+	  order_id BIGINT UNSIGNED NOT NULL,
+	  PRIMARY KEY  (order_item_id),
+	  KEY order_id (order_id)
+	) $collate;
+	CREATE TABLE {$wpdb->prefix}woocommerce_order_itemmeta (
+	  meta_id BIGINT UNSIGNED NOT NULL auto_increment,
+	  order_item_id BIGINT UNSIGNED NOT NULL,
+	  meta_key varchar(255) default NULL,
+	  meta_value longtext NULL,
+	  PRIMARY KEY  (meta_id),
+	  KEY order_item_id (order_item_id),
+	  KEY meta_key (meta_key(32))
+	) $collate;
+";
+
+	dbDelta( $tables );
 
 	// Clear any cached data that has been removed.
 	wp_cache_flush();

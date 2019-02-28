@@ -1,31 +1,28 @@
 <?php
 /**
- * Plugin Name: Empty WooCommerce
- * Description: Empties a WooCommerce install without needing to delete the plugin
- * Version: 0.0.1-beta-1
- * Author: Brooke Dukes
+ * Plugin Name: Empty WooCommerce Product and Order data
+ * Description: Removes Product and Order Data from WooCommerce
+ * Version: 0.0.2
+ * Author: Brooke.
  * Author URI: https://brooke.codes
  * Requires at least: 4.4
- * Tested up to: 4.7
+ * Tested up to: 5.1
  *
  */
 
-//Set our constant to TRUE to allow for the removal of data.
-if ( ! defined( 'WC_REMOVE_ALL_DATA' ) ) {
-    DEFINE ( 'WC_REMOVE_ALL_DATA', TRUE );
-}
 
-if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
-    DEFINE ( 'WP_UNINSTALL_PLUGIN', TRUE );
-}
-
-// Get the Uninstall file from WooCommerce
+// Get the modified uninstall file from WooCommerce if ?wc=true
 
 function empty_woo(){
-	$uninstall_file = trailingslashit( dirname( __FILE__ ) ) . 'uninstall.php';
+
+  if(  !isset( $_GET['wc_remove'] ) ||  $_GET['wc_remove'] !== "true"){
+    return;
+  }
+
+  $uninstall_file = trailingslashit( dirname( __FILE__ ) ) . 'uninstall_products_and_orders.php';
 
 	if ( file_exists ( $uninstall_file ) ) {
-    		include_once( $uninstall_file );
+    include_once( $uninstall_file );
 	}
 }
 
